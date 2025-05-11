@@ -1,1 +1,1 @@
-# ai_log_-anomalies_monitor
+# ai_log_anomalies_monitor
