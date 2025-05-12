@@ -1,4 +1,4 @@
-# === Python / Flask ===
+.env= Python / Flask ===
 __pycache__/
 *.py[cod]
 *.log
