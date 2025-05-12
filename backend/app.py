@@ -19,7 +19,7 @@ print('######## os.getenv("OPENAI_API_KEY")')
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # === OpenAI Client Setup ===
-#client = OpenAI(api_key="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")  # Replace with env variable or secure config in production
+#client = OpenAI(api_key="you-api-key")  # Replace with env variable or secure config in production
 
 # === Flask App ===
 from flask_cors import CORS  # 👈 import this
