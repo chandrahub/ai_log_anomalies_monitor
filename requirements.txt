@@ -1,0 +1,8 @@
+flask
+scikit-learn
+pandas
+numpy
+openai
+flask_cors
+python-dotenv
+#lucide-react

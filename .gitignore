@@ -1,0 +1,39 @@
+# === Python / Flask ===
+__pycache__/
+*.py[cod]
+*.log
+*.sqlite3
+*.env
+.env.*
+
+# === Virtual Environments ===
+venv/
+env/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+
+# === PyCharm ===
+.idea/
+
+# === Node.js / Next.js Frontend ===
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# === OS / Misc ===
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+*.log
+
+# === Coverage / Test ===
+htmlcov/
+coverage.xml
+.cache/
+.pytest_cache/
+jest-test-results.json
