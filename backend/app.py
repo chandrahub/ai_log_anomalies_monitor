@@ -162,6 +162,26 @@ def chat_query():
 
     return jsonify(filtered)
 
+# Inject log via chat-style message
+@app.route("/chat", methods=["POST"])
+def chat_inject():
+    data = request.json
+    message = data.get("message", "").strip()
+    level = data.get("level", "ERROR").upper()
+
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+
+    log = {
+        "timestamp": time.time(),
+        "level": level,
+        "message": message
+    }
+
+    log_queue.put(log)
+    return jsonify({"status": "injected", "log": log})
+
+
 # Start threads and run server
 if __name__ == "__main__":
     threading.Thread(target=generate_logs, daemon=True).start()
