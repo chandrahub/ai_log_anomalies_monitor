@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Info, Bug, AlertTriangle } from "lucide-react";
+import { AlertCircle, Info, Bug, AlertTriangle, SendHorizonal } from "lucide-react";
 
 const levelStyles = {
   ERROR: {
@@ -25,41 +25,63 @@ const levelStyles = {
     text: "text-gray-600",
     bg: "bg-gray-50",
     icon: <Bug className="text-gray-400" />,
-  }
+  },
 };
 
 export default function Home() {
   const [logs, setLogs] = useState([]);
   const [filter, setFilter] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch("http://localhost:5001/logs");
+      const data = await res.json();
+      setLogs(data);
+    } catch (err) {
+      console.error("Failed to fetch logs", err);
+    }
+  };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await fetch("http://localhost:5001/logs");
-        const data = await res.json();
-        setLogs(data);
-      } catch (err) {
-        console.error("Failed to fetch logs", err);
-      }
-    };
-
     fetchLogs();
     const interval = setInterval(fetchLogs, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  const filteredLogs = logs.filter(log => filter === "ALL" || log.level === filter);
+  const filteredLogs = logs.filter((log) => filter === "ALL" || log.level === filter);
+
+  const handleQuerySubmit = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch("http://localhost:5001/chat-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      setLogs(data);
+    } catch (err) {
+      console.error("Query failed", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-3xl font-bold mb-6 text-center">AI Log Monitor Dashboard</h1>
 
       <div className="flex justify-center mb-6 space-x-4">
-        {["ALL", "ERROR", "WARN", "INFO", "DEBUG"].map(lvl => (
+        {["ALL", "ERROR", "WARN", "INFO", "DEBUG"].map((lvl) => (
           <button
             key={lvl}
             className={`px-4 py-2 rounded font-medium transition ${
-              filter === lvl ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border border-blue-600'
+              filter === lvl
+                ? "bg-blue-600 text-white"
+                : "bg-white text-blue-600 border border-blue-600"
             }`}
             onClick={() => setFilter(lvl)}
           >
@@ -68,7 +90,30 @@ export default function Home() {
         ))}
       </div>
 
+      <div className="max-w-3xl mx-auto mb-6">
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ask: give all error logs in last 12 hours"
+            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none"
+          />
+          <button
+            onClick={handleQuerySubmit}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-1"
+          >
+            <SendHorizonal className="w-4 h-4" />
+            <span>Ask</span>
+          </button>
+        </div>
+        {loading && <p className="text-sm text-gray-600 mt-2">Fetching results...</p>}
+      </div>
+
       <div className="grid gap-6">
+        {filteredLogs.length === 0 && (
+          <div className="text-center text-gray-500">No logs to display.</div>
+        )}
         {filteredLogs.map((log, index) => {
           const style = levelStyles[log.level] || {};
           return (
