@@ -13,53 +13,44 @@ from sklearn.ensemble import IsolationForest
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env
-
-print('######## os.getenv("OPENAI_API_KEY")')
+load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# === OpenAI Client Setup ===
-#client = OpenAI(api_key="you-api-key")  # Replace with env variable or secure config in production
-
-# === Flask App ===
-from flask_cors import CORS  # 👈 import this
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # 👈 enable CORS for all routes
+CORS(app)
 
-# === Email Configuration ===
 EMAIL_FROM = "codefestmarriott@gmail.com"
 EMAIL_TO = "ailogmonitor@yopmail.com"
 SMTP_SERVER = "smtp.yopmail.com"
 SMTP_PORT = 25
 
-# === Queues and Anomalies ===
 log_queue = queue.Queue()
 anomalies = []
 
-# === Log Generator ===
+# === Log Generator with proper severity levels ===
 def generate_logs():
-    log_levels = ['INFO', 'DEBUG', 'WARN', 'ERROR']
     messages = [
-        "Service started",
-        "Database connection established",
-        "Cache miss",
-        "User login successful",
-        "Failed to connect to DB",
-        "Timeout occurred while calling API",
-        "Memory usage high",
-        "Disk space low",
+        {"message": "Service started", "level": "INFO"},
+        {"message": "Database connection established", "level": "INFO"},
+        {"message": "Cache miss", "level": "DEBUG"},
+        {"message": "User login successful", "level": "INFO"},
+        {"message": "Failed to connect to DB", "level": "ERROR"},
+        {"message": "Timeout occurred while calling API", "level": "ERROR"},
+        {"message": "Memory usage high", "level": "WARN"},
+        {"message": "Disk space low", "level": "WARN"},
     ]
     while True:
+        entry = random.choice(messages)
         log = {
             'timestamp': time.time(),
-            'level': random.choices(log_levels, weights=[60, 20, 15, 5])[0],
-            'message': random.choice(messages),
+            'level': entry['level'],
+            'message': entry['message'],
         }
         log_queue.put(log)
         time.sleep(random.uniform(0.5, 1.5))
 
-# === Preprocess Logs ===
 def preprocess_logs(logs):
     df = pd.DataFrame(logs)
     df['level_encoded'] = df['level'].map({'INFO': 0, 'DEBUG': 1, 'WARN': 2, 'ERROR': 3})
@@ -67,7 +58,6 @@ def preprocess_logs(logs):
     df['time_diff'] = df['timestamp'].diff().fillna(0)
     return df[['level_encoded', 'message_len', 'time_diff']]
 
-# === Get Fix Suggestion from OpenAI ===
 def get_fix_suggestion(log_message):
     prompt = f"You are an AI DevOps assistant. Analyze the following log message and suggest a possible cause and fix.\n\nLog: {log_message}"
     try:
@@ -79,7 +69,6 @@ def get_fix_suggestion(log_message):
     except Exception as e:
         return f"LLM error: {e}"
 
-# === Send Email Alert ===
 def send_email_alert(subject, body):
     msg = MIMEText(body)
     msg['Subject'] = subject
@@ -91,7 +80,6 @@ def send_email_alert(subject, body):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-# === Anomaly Detection Loop ===
 def detect_anomalies():
     buffer = []
     model = IsolationForest(contamination=0.05)
@@ -102,23 +90,26 @@ def detect_anomalies():
                 structured = preprocess_logs(buffer)
                 preds = model.fit_predict(structured)
                 for i, pred in enumerate(preds):
+                    log = buffer[i]
                     if pred == -1:
-                        anomaly = buffer[i]
-                        anomaly['reason'] = "Anomalous log pattern detected"
-                        anomaly['suggestion'] = get_fix_suggestion(anomaly['message'])
-                        anomalies.append(anomaly)
-                        email_body = f"""
+                        if log["level"] == "INFO":
+                            log["reason"] = "Info-level log. No anomaly detected."
+                            log["suggestion"] = "No action required for informational logs."
+                        else:
+                            log["reason"] = "Anomalous log pattern detected"
+                            log["suggestion"] = get_fix_suggestion(log["message"])
+                            email_body = f"""
 Anomaly Detected:
-Level: {anomaly['level']}
-Message: {anomaly['message']}
-Reason: {anomaly['reason']}
-Suggestion: {anomaly['suggestion']}
-                        """.strip()
-                        send_email_alert("[Log Monitor] Anomaly Detected", email_body)
+Level: {log['level']}
+Message: {log['message']}
+Reason: {log['reason']}
+Suggestion: {log['suggestion']}
+                            """.strip()
+                            send_email_alert("[Log Monitor] Anomaly Detected", email_body)
+                        anomalies.append(log)
                 buffer.clear()
         time.sleep(0.5)
 
-# === API Routes ===
 @app.route("/logs", methods=['GET'])
 def get_logs():
     return jsonify(list(anomalies)[-10:])
@@ -129,10 +120,7 @@ def ingest_log():
     log_queue.put(log)
     return jsonify({"status": "received"})
 
-# === App Runner ===
 if __name__ == "__main__":
     threading.Thread(target=generate_logs, daemon=True).start()
     threading.Thread(target=detect_anomalies, daemon=True).start()
     app.run(port=5001, debug=True)
-
-
